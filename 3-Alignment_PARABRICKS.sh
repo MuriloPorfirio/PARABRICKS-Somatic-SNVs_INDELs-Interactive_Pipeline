@@ -5,6 +5,8 @@
 # Author: Murilo Porfírio & としろ
 # ============================================
 
+SCRIPT_START_TIME=$(date +%s)  # Start total time counter
+
 # ===================== Introduction =====================
 echo "==================================================="
 echo " FASTQ to BAM Alignment using Parabricks fq2bam "
@@ -125,7 +127,6 @@ GPU_PARAM="device=$SELECTED_GPUS"
 echo ""
 echo "Low Memory Mode (--low-memory):"
 echo "Use this if your GPU has less than 40GB VRAM (ex: T4, V100, A100 20GB)."
-echo "It reduces GPU memory usage but may slow down the process."
 echo "Do you want to enable low memory mode? (yes/no)"
 read USE_LOW_MEMORY
 if [[ "$USE_LOW_MEMORY" == "yes" ]]; then
@@ -186,6 +187,10 @@ TIMESTAMP=$(date +"%d-%m-%Y_%Hh%Mm")
 OUTPUT_DIR="$INPUT_DIR/4-parabricks_output_$TIMESTAMP"
 mkdir -p "$OUTPUT_DIR"
 
+# ===================== Start Global Log =====================
+SCRIPT_LOG="$OUTPUT_DIR/run_log.txt"
+exec > >(tee -a "$SCRIPT_LOG") 2>&1
+
 # ===================== Recap =====================
 echo ""
 echo "========== RECAP =========="
@@ -232,6 +237,8 @@ for ((i=0; i<NUM_FILES; i+=2)); do
   OUTPUT_BAM="/outputdir/${SAMPLE_NAME}_aligned.bam"
   RECAL_FILE="/outputdir/${SAMPLE_NAME}_recal.txt"
 
+  SAMPLE_START_TIME=$(date +%s)
+
   echo ""
   echo "Processing sample: $SAMPLE_NAME"
 
@@ -253,11 +260,23 @@ for ((i=0; i<NUM_FILES; i+=2)); do
     $CPU_THREADS_PARAM \
     $GPU_OPT_PARAM \
     $GDS_PARAM
+
+  SAMPLE_END_TIME=$(date +%s)
+  SAMPLE_DURATION=$((SAMPLE_END_TIME - SAMPLE_START_TIME))
+  echo "Sample $SAMPLE_NAME completed in ${SAMPLE_DURATION} seconds."
 done
+
+# ===================== Total Execution Time =====================
+SCRIPT_END_TIME=$(date +%s)
+TOTAL_DURATION=$((SCRIPT_END_TIME - SCRIPT_START_TIME))
+TOTAL_HOURS=$((TOTAL_DURATION / 3600))
+TOTAL_MINUTES=$(((TOTAL_DURATION % 3600) / 60))
+TOTAL_SECONDS=$((TOTAL_DURATION % 60))
 
 echo ""
 echo "===================================================="
 echo " All samples processed! Output BAM files are in:"
 echo " $OUTPUT_DIR"
+echo " Total execution time: ${TOTAL_HOURS}h ${TOTAL_MINUTES}m ${TOTAL_SECONDS}s"
 echo "===================================================="
 exit 0
